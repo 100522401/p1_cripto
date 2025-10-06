@@ -8,8 +8,8 @@ class UsersStore(JsonStore):
         
 
         def add_item(self, item):
-            for request in self._data_list:
-                if request == item.to_json():
+            for user in self._data_list:
+                if user["username"].lower() == item["username"].lower():
                     raise Exception("Cuenta ya existente")
             super().add_item(item)
             return self._data_list

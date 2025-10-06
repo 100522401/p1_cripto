@@ -31,5 +31,5 @@ class JsonStore():
     def add_item(self, item):
         """añade un nuevo elemento a la store"""
         self.load_list_from_file()
-        self._data_list.append(item.to_json())
+        self._data_list.append(item)
         self.save_list_to_file()
