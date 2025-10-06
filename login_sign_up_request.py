@@ -9,6 +9,8 @@ class SignUp:
     def __init__(self, username, password):
         self._username = username
         password = password.encode()      # Scrypt solo acepta bytes
+
+
         #genero hash de la password con scrypt
         #Uso scrypt ya que SHA fue diseñado para detectar cambios de datos y no para autenticacion
         #SHA + rápido --> + vulnerable a ataques fuerza bruta
@@ -24,7 +26,7 @@ class SignUp:
 
         self._password_hash = kdf_auth.derive(password)
 
-        #AES-GCM
+        # Creamos claves RSA
         private_key = rsa.generate_private_key(
         public_exponent=65537,
         key_size=2048,
@@ -32,8 +34,8 @@ class SignUp:
 
         public_key = private_key.public_key()
 
-        #Serializar claves
-        #Usaremos DER ya que es más compacto y ocupa menos espacio
+        # Serializar claves
+        # Usaremos DER ya que es más compacto y ocupa menos espacio
 
         private_key_bytes = private_key.private_bytes(
             encoding=serialization.Encoding.DER,
@@ -49,6 +51,8 @@ class SignUp:
             format=serialization.PublicFormat.SubjectPublicKeyInfo  
         )
 
+        # Vamos a usar AESGCM para encriptar la clave privada
+        # Genero clave AES
         self._salt_ec = os.urandom(16)
         kdf_ec = Scrypt(
             salt=self._salt_ec,
@@ -59,9 +63,13 @@ class SignUp:
         )
 
         AES_key = kdf_ec.derive(password)
+
+        #Instanciamos clase AESGCM
         aesgcm = AESGCM(AES_key)
         self._nonce = os.urandom(12)
         aad = self._username.encode()
+
+        #Encriptamos clave privada
         self._ec_private_key_bytes = aesgcm.encrypt(self._nonce, private_key_bytes, aad)
 
 
