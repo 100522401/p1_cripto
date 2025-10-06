@@ -9,6 +9,7 @@ class UsersStore(JsonStore):
 
         def add_item(self, item):
             for user in self._data_list:
+                #Interpreto que Nombre == nombre
                 if user["username"].lower() == item["username"].lower():
                     raise Exception("Cuenta ya existente")
             super().add_item(item)
