@@ -51,7 +51,7 @@ def encrypt_file(filepath, public_key_pem):
     print(f"Archivo '{filename}' cifrado correctamente.")
 
 
-def decrypt_file(filename, private_key_pem, password=None):
+def decrypt_file(filename, private_key_pem, password):
     # Cargar archivo cifrado
     with open(f"data/{filename}.bin", "rb") as f:
         nonce = f.read(12)
@@ -59,12 +59,13 @@ def decrypt_file(filename, private_key_pem, password=None):
         ciphertext = f.read()
 
     # Cargar metadatos
+    # TODO: un único json
     with open(f"data/{filename}.json", "r") as f:
         meta = json.load(f)
     enc_key = base64.b64decode(meta["enc_key"])
 
     # Descifrar clave AES con RSA
-    private_key = serialization.load_pem_private_key(private_key_pem.encode(), password=None)
+    private_key = serialization.load_pem_private_key(private_key_pem.encode(), password)
     key = private_key.decrypt(
         enc_key,
         padding.OAEP(
@@ -94,12 +95,19 @@ if __name__ == "__main__":
     private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     public_key = private_key.public_key()
 
+    '''
     private_pem = private_key.private_bytes(
         encoding=serialization.Encoding.PEM,
         format=serialization.PrivateFormat.PKCS8,
         encryption_algorithm=serialization.NoEncryption()
     ).decode()
-
+    '''
+    private_pem = private_key.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.PKCS8,
+        encryption_algorithm=serialization.BestAvailableEncryption(b'mypassword')
+    ).decode()
+    
     public_pem = public_key.public_bytes(
         encoding=serialization.Encoding.PEM,
         format=serialization.PublicFormat.SubjectPublicKeyInfo
@@ -113,5 +121,5 @@ if __name__ == "__main__":
     print("Cifrando archivo...")
     encrypt_file("prueba.txt", public_pem)
     print("Descifrando archivo...")
-    decrypt_file("prueba.txt", private_pem)
+    decrypt_file("prueba.txt", private_pem, password=b"mypassword")
     print("Prueba finalizada.")
