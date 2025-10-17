@@ -59,6 +59,7 @@ def decrypt_file(filename, private_key_pem, password):
         ciphertext = f.read()
 
     # Cargar metadatos
+    # TODO: un único json
     with open(f"data/{filename}.json", "r") as f:
         meta = json.load(f)
     enc_key = base64.b64decode(meta["enc_key"])
