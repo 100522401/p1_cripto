@@ -1,6 +1,9 @@
+import os
 import tkinter as tk
+from cryptography.hazmat.primitives import serialization
 from tkinter import messagebox
 from core.user_manager import sign_up, log_in
+from core.symmetric_crypto import encrypt_file, decrypt_file
 
 # ====================================================
 # CONFIGURACIÓN DE LA VENTANA PRINCIPAL
@@ -54,12 +57,22 @@ def user_log_in():
         messagebox.showwarning("Campos vacíos", "Por favor, rellene todos los campos.")
         return
 
-    if  log_in(username, password):
+    resultado = log_in(username, password)
+    if resultado:
+        private_key, public_key = resultado
         messagebox.showinfo("Inicio de sesión", f"Bienvenido, {username}!")
+        # Serializamos la clave privada cifrada con la contraseña
+        show_vault_screen(
+            private_key.private_bytes(
+                encoding=serialization.Encoding.PEM,
+                format=serialization.PrivateFormat.PKCS8,
+                encryption_algorithm=serialization.BestAvailableEncryption(password.encode())
+            ).decode(),
+            public_key,
+            password
+        )
     else:
         messagebox.showerror("Error", "Usuario o contraseña incorrectos.")
-
-
 
 
 def show_sign_up():
@@ -150,6 +163,48 @@ tk.Button(
     font=fuente_boton,
     relief="flat"
 ).pack()
+
+from tkinter import filedialog
+from core.symmetric_crypto import encrypt_file, decrypt_file
+
+def show_vault_screen(private_pem, public_pem, password):
+    # Oculta las otras pantallas
+    frame_login.pack_forget()
+    frame_registro.pack_forget()
+
+    frame_vault = tk.Frame(root, bg="#E8EEF1")
+    frame_vault.pack(expand=True)
+
+    tk.Label(frame_vault, text="Almacén seguro", font=fuente_titulo, bg="#E8EEF1").pack(pady=15)
+
+    def cifrar_archivo():
+        ruta = filedialog.askopenfilename(title="Selecciona un archivo para cifrar")
+        if not ruta:
+            return
+        encrypt_file(ruta, public_pem.decode() if isinstance(public_pem, bytes) else public_pem)
+        messagebox.showinfo("Éxito", "Archivo cifrado correctamente.")
+
+    def descifrar_archivo():
+        ruta = filedialog.askopenfilename(title="Selecciona un archivo .bin para descifrar")
+        if not ruta:
+            return
+        nombre = os.path.splitext(os.path.basename(ruta))[0]
+        decrypt_file(nombre, private_pem, password=password.encode())
+        messagebox.showinfo("Éxito", "Archivo descifrado correctamente.")
+
+    tk.Button(frame_vault, text="Cifrar archivo", command=cifrar_archivo,
+              bg=COLOR_PRINCIPAL, fg="white", font=fuente_boton, width=20).pack(pady=10)
+    tk.Button(frame_vault, text="Descifrar archivo", command=descifrar_archivo,
+              bg=COLOR_PRINCIPAL, fg="white", font=fuente_boton, width=20).pack(pady=10)
+    
+    def cerrar_sesion():
+        frame_vault.pack_forget()
+        frame_vault.destroy()
+        show_log_in()
+    
+    tk.Button(frame_vault, text="Cerrar sesión", command=cerrar_sesion,
+              bg="#CAD2C5", fg=COLOR_TEXTO, font=fuente_boton, width=20).pack(pady=20)
+
 
 # ====================================================
 # BUCLE PRINCIPAL
