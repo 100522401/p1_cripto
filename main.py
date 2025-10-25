@@ -3,7 +3,7 @@ import tkinter as tk
 from cryptography.hazmat.primitives import serialization
 from tkinter import messagebox
 from core.user_manager import sign_up, log_in
-from core.symmetric_crypto import encrypt_file, decrypt_file
+from core.cripto_manager import encrypt_file, decrypt_file
 
 # ====================================================
 # CONFIGURACIÓN DE LA VENTANA PRINCIPAL
@@ -182,7 +182,7 @@ tk.Button(
 ).pack()
 
 from tkinter import filedialog
-from core.symmetric_crypto import encrypt_file, decrypt_file
+from core.cripto_manager import encrypt_file, decrypt_file
 
 def show_vault_screen(private_pem, public_pem, password, username):
     # Oculta las otras pantallas
