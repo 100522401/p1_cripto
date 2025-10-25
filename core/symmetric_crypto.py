@@ -4,10 +4,13 @@ La clase simétrica se protege cifrándola con la clave pública RSA del usuario
 """
 import base64, json, os
 from core.json_manager import ensure_dir, write_json, delete_file, read_json
+from core.user_manager import get_admin_public_key, get_user_rol
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding
-# TODO: refactorizar lo que se pueda con json_manager
+
+USER_FILE = os.path.join("jsons", "users.json")
+
 def aes_encrypt_data(aes_key, nonce, plaintext):
     cipher = Cipher(algorithms.AES(aes_key), modes.GCM(nonce))
     encryptor = cipher.encryptor()
@@ -73,10 +76,20 @@ def encrypt_file(filepath, public_key_pem, output_dir="data"):
     # Cifrar con AES-GCM
     encryptor_tag, ciphertext = aes_encrypt_data(aes_key, nonce, plaintext)
 
-    # Cifrar clave AES con RSA pública
-    enc_key = rsa_encrypt_key(aes_key, public_key_pem)
+    
 
-    # Guardar archivo binario (.bin)
+    # Cifrar clave AES con RSA pública del usuario
+    enc_key_user = rsa_encrypt_key(aes_key, public_key_pem)
+    
+    # Clave cifrada con pública del admin
+    try:
+        admin_pub = get_admin_public_key()
+        enc_key_admin = rsa_encrypt_key(aes_key, admin_pub)
+    except Exception as e:
+        raise ValueError(f"No se pudo obtener la clave pública del admin: {e}")
+    
+
+    # Guardar archivo cifrado binario (.bin)
     filename = os.path.basename(filepath)
     with open(os.path.join(output_dir, f"{filename}.bin"), "wb") as f:
         f.write(nonce + encryptor_tag + ciphertext)
@@ -84,7 +97,8 @@ def encrypt_file(filepath, public_key_pem, output_dir="data"):
     # Guardar metadatos (.json)
     metadata = {
         "filename": filename,
-        "enc_key": base64.b64encode(enc_key).decode(),
+        "enc_key_user": base64.b64encode(enc_key_user).decode(),
+        "enc_key_admin": base64.b64encode(enc_key_admin).decode(),
         "algorithm": "AES-256-GCM"
     }
     write_json(os.path.join(output_dir, f"{filename}.json"), metadata)
@@ -94,6 +108,7 @@ def encrypt_file(filepath, public_key_pem, output_dir="data"):
 
 
     #os.remove(filepath)
+    
     # Borrar archivo original
     delete_file(filepath)
     print(f"Archivo '{filename}' cifrado correctamente")
@@ -101,7 +116,7 @@ def encrypt_file(filepath, public_key_pem, output_dir="data"):
     return filename
 
 
-def decrypt_file(filename, private_key_pem, password, input_dir="data"):
+def decrypt_file(filename, private_key_pem, password, input_dir="data", username=None):
     """Descifra un archivo cifrado con AES-GCM, usando RSA para recuperar la clave"""
     #with open(os.path.join(input_dir, f"{filename}.json"), "r") as f:
      #   meta = json.load(f)
@@ -111,7 +126,11 @@ def decrypt_file(filename, private_key_pem, password, input_dir="data"):
 
     # Leer metadatos
     meta = read_json(json_path)
-    enc_key = base64.b64decode(meta["enc_key"])
+    role = get_user_rol(username)
+    if role == "admin":
+        enc_key = base64.b64decode(meta["enc_key_admin"])
+    else:
+        enc_key = base64.b64decode(meta["enc_key_user"])
 
     # Leer binario 
     with open(bin_path, "rb") as f:
@@ -133,4 +152,7 @@ def decrypt_file(filename, private_key_pem, password, input_dir="data"):
     
     return output_path
 
+
+
+        
 #__all__ = ["encrypt_file", "decrypt_file"]

@@ -42,6 +42,7 @@ def user_sign_up():
         registrado = sign_up(username, password)
         if registrado:
             messagebox.showinfo("Registro exitoso", f"Usuario '{username}' registrado correctamente.")
+            clean_form_register()
             show_log_in()
         else:
             messagebox.showerror("Error", "El usuario ya existe.")
@@ -71,7 +72,8 @@ def user_log_in():
                 encryption_algorithm=serialization.BestAvailableEncryption(password.encode())
             ).decode(),
             public_key,
-            password
+            password,
+            username
         )
     else:
         messagebox.showerror("Error", "Usuario o contraseña incorrectos.")
@@ -81,15 +83,23 @@ def clean_form_login():
     entry_username_login.delete(0, tk.END)
     entry_password_login.delete(0, tk.END)
 
+def clean_form_register():
+    """Vacía los campos del formulario de registro."""
+    entry_username_reg.delete(0, tk.END)
+    entry_password_reg.delete(0, tk.END)
+
 def show_sign_up():
     frame_login.pack_forget()
     frame_registro.pack(expand=True)
+    root.bind('<Return>', lambda event=None: user_sign_up())
 
 
 def show_log_in():
     frame_registro.pack_forget()
     frame_login.pack(expand=True)
     clean_form_login()
+    clean_form_register()
+    root.bind('<Return>', lambda event=None: user_log_in())
 
 
 # ====================================================
@@ -174,7 +184,7 @@ tk.Button(
 from tkinter import filedialog
 from core.symmetric_crypto import encrypt_file, decrypt_file
 
-def show_vault_screen(private_pem, public_pem, password):
+def show_vault_screen(private_pem, public_pem, password, username):
     # Oculta las otras pantallas
     frame_login.pack_forget()
     frame_registro.pack_forget()
@@ -184,7 +194,6 @@ def show_vault_screen(private_pem, public_pem, password):
 
     tk.Label(frame_vault, text="Almacén seguro", font=fuente_titulo, bg="#E8EEF1").pack(pady=15)
 
-    # TODO: meter en el user_manager
     def cifrar_archivo():
         ruta = filedialog.askopenfilename(title="Selecciona un archivo para cifrar")
         if not ruta:
@@ -193,33 +202,47 @@ def show_vault_screen(private_pem, public_pem, password):
         messagebox.showinfo("Éxito", "Archivo cifrado correctamente.")
 
     def descifrar_archivo():
+        """Permite seleccionar y descifrar un archivo .bin con la clave privada del usuario."""
+
+        # Seleccionar un .bin
         ruta = filedialog.askopenfilename(title="Selecciona un archivo .bin para descifrar")
+        if not ruta.endswith(".bin"):
+            messagebox.showerror("Error", "Selecciona un archivo con extensión .bin.")
+            return
+
+        # Usuario cancela
         if not ruta:
             return
+        
+        # Nombre del archivo sin extensión
         nombre = os.path.splitext(os.path.basename(ruta))[0]
         
         try:
-            decrypt_file(nombre, private_pem, password=password.encode())
-        except Exception:
-            messagebox.showinfo("Error", "Acceso al archivo denegado")
-        messagebox.showinfo("Éxito", "Archivo descifrado correctamente.")
+            output_path = decrypt_file(nombre, private_pem, password=password.encode(), username=username)
+            messagebox.showinfo("Éxito", "Archivo descifrado correctamente.")
+        except Exception as e:
+            messagebox.showinfo(f"Error: {e}", "Acceso al archivo denegado")
 
     tk.Button(frame_vault, text="Cifrar archivo", command=cifrar_archivo,
               bg=COLOR_PRINCIPAL, fg="white", font=fuente_boton, width=20).pack(pady=10)
     tk.Button(frame_vault, text="Descifrar archivo", command=descifrar_archivo,
               bg=COLOR_PRINCIPAL, fg="white", font=fuente_boton, width=20).pack(pady=10)
     
-    def cerrar_sesion():
+    def log_out():
         frame_vault.pack_forget()
         frame_vault.destroy()
         show_log_in()
+        
     
-    tk.Button(frame_vault, text="Cerrar sesión", command=cerrar_sesion,
+    tk.Button(frame_vault, text="Cerrar sesión", command=log_out,
               bg="#CAD2C5", fg=COLOR_TEXTO, font=fuente_boton, width=20).pack(pady=20)
 
 
 # ====================================================
 # BUCLE PRINCIPAL
 # ====================================================
+
+# Permitir iniciar sesión con la tecla Enter
+root.bind('<Return>', lambda event=None: user_log_in())
 
 root.mainloop()
