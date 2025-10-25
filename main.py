@@ -4,7 +4,7 @@ from cryptography.hazmat.primitives import serialization
 from tkinter import messagebox
 from core.user_manager import sign_up, log_in
 from core.symmetric_crypto import encrypt_file, decrypt_file
-
+#TODO Vaciar el registro tras cualquier interacción
 # ====================================================
 # CONFIGURACIÓN DE LA VENTANA PRINCIPAL
 # ====================================================
@@ -58,6 +58,8 @@ def user_log_in():
         return
 
     resultado = log_in(username, password)
+    clean_form_login()
+
     if resultado:
         private_key, public_key = resultado
         messagebox.showinfo("Inicio de sesión", f"Bienvenido, {username}!")
@@ -74,6 +76,10 @@ def user_log_in():
     else:
         messagebox.showerror("Error", "Usuario o contraseña incorrectos.")
 
+def clean_form_login():
+    """Vacía los campos del formulario de inicio de sesión."""
+    entry_username_login.delete(0, tk.END)
+    entry_password_login.delete(0, tk.END)
 
 def show_sign_up():
     frame_login.pack_forget()
@@ -83,6 +89,7 @@ def show_sign_up():
 def show_log_in():
     frame_registro.pack_forget()
     frame_login.pack(expand=True)
+    clean_form_login()
 
 
 # ====================================================
@@ -177,6 +184,7 @@ def show_vault_screen(private_pem, public_pem, password):
 
     tk.Label(frame_vault, text="Almacén seguro", font=fuente_titulo, bg="#E8EEF1").pack(pady=15)
 
+    # TODO: meter en el user_manager
     def cifrar_archivo():
         ruta = filedialog.askopenfilename(title="Selecciona un archivo para cifrar")
         if not ruta:
@@ -189,7 +197,11 @@ def show_vault_screen(private_pem, public_pem, password):
         if not ruta:
             return
         nombre = os.path.splitext(os.path.basename(ruta))[0]
-        decrypt_file(nombre, private_pem, password=password.encode())
+        
+        try:
+            decrypt_file(nombre, private_pem, password=password.encode())
+        except Exception:
+            messagebox.showinfo("Error", "Acceso al archivo denegado")
         messagebox.showinfo("Éxito", "Archivo descifrado correctamente.")
 
     tk.Button(frame_vault, text="Cifrar archivo", command=cifrar_archivo,

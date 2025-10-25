@@ -26,3 +26,13 @@ def write_json(path: str, data: dict):
     ensure_dir(path)
     with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=4, ensure_ascii=False)
+
+def delete_file(path: str):
+    """Elimina un archivo si existe. Devuelve True si se eliminó."""
+    try:
+        if os.path.exists(path):
+            os.remove(path)
+            return True
+    except Exception:
+        pass
+    return False
