@@ -4,7 +4,7 @@ from cryptography.hazmat.primitives import serialization
 from tkinter import messagebox
 from core.user_manager import sign_up, log_in
 from core.symmetric_crypto import encrypt_file, decrypt_file
-#TODO Vaciar el registro tras cualquier interacción
+
 # ====================================================
 # CONFIGURACIÓN DE LA VENTANA PRINCIPAL
 # ====================================================
@@ -42,7 +42,7 @@ def user_sign_up():
         registrado = sign_up(username, password)
         if registrado:
             messagebox.showinfo("Registro exitoso", f"Usuario '{username}' registrado correctamente.")
-            clean_form_register()
+            clean_form_signup()
             show_log_in()
         else:
             messagebox.showerror("Error", "El usuario ya existe.")
@@ -83,7 +83,7 @@ def clean_form_login():
     entry_username_login.delete(0, tk.END)
     entry_password_login.delete(0, tk.END)
 
-def clean_form_register():
+def clean_form_signup():
     """Vacía los campos del formulario de registro."""
     entry_username_reg.delete(0, tk.END)
     entry_password_reg.delete(0, tk.END)
@@ -98,7 +98,7 @@ def show_log_in():
     frame_registro.pack_forget()
     frame_login.pack(expand=True)
     clean_form_login()
-    clean_form_register()
+    clean_form_signup()
     root.bind('<Return>', lambda event=None: user_log_in())
 
 
@@ -194,14 +194,14 @@ def show_vault_screen(private_pem, public_pem, password, username):
 
     tk.Label(frame_vault, text="Almacén seguro", font=fuente_titulo, bg="#E8EEF1").pack(pady=15)
 
-    def cifrar_archivo():
+    def encrypt():
         ruta = filedialog.askopenfilename(title="Selecciona un archivo para cifrar")
         if not ruta:
             return
         encrypt_file(ruta, public_pem.decode() if isinstance(public_pem, bytes) else public_pem)
         messagebox.showinfo("Éxito", "Archivo cifrado correctamente.")
 
-    def descifrar_archivo():
+    def decrypt():
         """Permite seleccionar y descifrar un archivo .bin con la clave privada del usuario."""
 
         # Seleccionar un .bin
@@ -223,9 +223,9 @@ def show_vault_screen(private_pem, public_pem, password, username):
         except Exception as e:
             messagebox.showinfo(f"Error: {e}", "Acceso al archivo denegado")
 
-    tk.Button(frame_vault, text="Cifrar archivo", command=cifrar_archivo,
+    tk.Button(frame_vault, text="Cifrar archivo", command=encrypt,
               bg=COLOR_PRINCIPAL, fg="white", font=fuente_boton, width=20).pack(pady=10)
-    tk.Button(frame_vault, text="Descifrar archivo", command=descifrar_archivo,
+    tk.Button(frame_vault, text="Descifrar archivo", command=decrypt,
               bg=COLOR_PRINCIPAL, fg="white", font=fuente_boton, width=20).pack(pady=10)
     
     def log_out():

@@ -70,6 +70,22 @@ def generate_rsa_keys(password):
     return public_pem, private_pem
 
 
+def get_user_rol(username: str):
+    """Devuelve el rol del usuario ('user' o 'admin')."""
+    users = read_json(USER_FILE)
+    print(users.get(username, {}).get("rol", "user"))
+    return users.get(username, {}).get("rol", "user")
+
+def get_admin_public_key():
+    """Devuelve la clave pública del usuario con rol 'admin'."""
+    users = read_json(USER_FILE)
+
+    for username, data in users.items():
+        if data.get("rol") == "admin":
+            return base64.b64decode(data["public_key"]).decode()
+
+    # Si no hay ninguno
+    raise ValueError("⚠️ No se encontró ningún usuario con rol 'admin' en users.json.")
 
 
 def sign_up(username: str, password: str): 
@@ -168,20 +184,3 @@ def log_in(username: str, password: str) -> bool:
     except Exception as e:
         print(f"Error durante el inicio de sesión: {e}")
         return False
-    
-def get_user_rol(username: str):
-    """Devuelve el rol del usuario ('user' o 'admin')."""
-    users = read_json(USER_FILE)
-    print(users.get(username, {}).get("rol", "user"))
-    return users.get(username, {}).get("rol", "user")
-
-def get_admin_public_key():
-    """Devuelve la clave pública del usuario con rol 'admin'."""
-    users = read_json(USER_FILE)
-
-    for username, data in users.items():
-        if data.get("rol") == "admin":
-            return base64.b64decode(data["public_key"]).decode()
-
-    # Si no hay ninguno
-    raise ValueError("⚠️ No se encontró ningún usuario con rol 'admin' en users.json.")
