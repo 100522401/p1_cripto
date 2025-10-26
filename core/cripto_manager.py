@@ -147,7 +147,11 @@ def decrypt_file(filename, private_key_pem, password, input_dir="data", username
     # Descifrar con AES-GCM
     plaintext = aes_decrypt_data(aes_key, nonce, tag, ciphertext)
 
-    output_path = os.path.join(input_dir, f"{filename}_descifrado.txt")
+    # Recuperar nombre original y extensión
+    original_name = meta.get("filename", filename)
+    nombre_sin_ext, ext = os.path.splitext(original_name)
+    output_path = os.path.join(input_dir, f"{nombre_sin_ext}_descifrado{ext}")
+    
     with open(output_path, "wb") as f:
         f.write(plaintext)
     
