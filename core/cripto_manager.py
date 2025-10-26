@@ -88,7 +88,10 @@ def encrypt_file(filepath, public_key_pem, output_dir="data"):
     except Exception as e:
         raise ValueError(f"No se pudo obtener la clave pública del admin: {e}")
     
-
+    # Se crea el directorio 'data' en caso de que no exista (destino de archivos cifrados/descifrados por defecto)
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    
     # Guardar archivo cifrado binario (.bin)
     filename = os.path.basename(filepath)
     with open(os.path.join(output_dir, f"{filename}.bin"), "wb") as f:
