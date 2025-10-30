@@ -19,9 +19,12 @@ def aes_encrypt_data(aes_key, nonce, plaintext):
     return  encryptor.tag, ciphertext
 
 def aes_decrypt_data(aes_key, nonce, tag, ciphertext):
-    cipher = Cipher(algorithms.AES(aes_key), modes.GCM(nonce, tag))
-    decryptor = cipher.decryptor()
-    plaintext = decryptor.update(ciphertext) + decryptor.finalize()
+    try:
+        cipher = Cipher(algorithms.AES(aes_key), modes.GCM(nonce, tag))
+        decryptor = cipher.decryptor()
+        plaintext = decryptor.update(ciphertext) + decryptor.finalize()
+    except Exception as e:
+        raise ValueError(f"archivo corrupto")
 
     return plaintext
 
@@ -86,7 +89,7 @@ def encrypt_file(filepath, public_key_pem, output_dir="data"):
         admin_pub = get_admin_public_key()
         enc_key_admin = rsa_encrypt_key(aes_key, admin_pub)
     except Exception as e:
-        raise ValueError(f"No se pudo obtener la clave pública del admin: {e}")
+        raise ValueError(f"No se pudo obtener la clave pública del admin")
     
     # Se crea el directorio 'data' en caso de que no exista (destino de archivos cifrados/descifrados por defecto)
     if not os.path.exists(output_dir):

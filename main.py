@@ -223,7 +223,7 @@ def show_vault_screen(private_pem, public_pem, password, username):
             output_path = decrypt_file(nombre, private_pem, password=password.encode(), username=username)
             messagebox.showinfo("Éxito", "Archivo descifrado correctamente.")
         except Exception as e:
-            messagebox.showinfo(f"Error: {e}", "Acceso al archivo denegado")
+            messagebox.showinfo("Error:", f"Acceso al archivo denegado: {e}")
 
     tk.Button(frame_vault, text="Cifrar archivo", command=encrypt,
               bg=COLOR_PRINCIPAL, fg="white", font=fuente_boton, width=20).pack(pady=10)

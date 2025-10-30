@@ -73,7 +73,7 @@ def generate_rsa_keys(password):
 def get_user_rol(username: str):
     """Devuelve el rol del usuario ('user' o 'admin')."""
     users = read_json(USER_FILE)
-    print(users.get(username, {}).get("rol", "user"))
+    #print(users.get(username, {}).get("rol", "user"))
     return users.get(username, {}).get("rol", "user")
 
 def get_admin_public_key():
