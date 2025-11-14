@@ -59,7 +59,7 @@ def rsa_decrypt_key(enc_key: str, private_key_pem: str, password: bytes):
 
 
 
-def encrypt_file(filepath, public_key_pem, output_dir="data"):
+def encrypt_file(filepath, public_key_pem, private_key_pem, password, output_dir="data"):
     """Cifra un archivo con AES-GCM y protege la clave AES con RSA"""
 
     # se crea el directorio 'data' en caso de que no exista
@@ -76,7 +76,7 @@ def encrypt_file(filepath, public_key_pem, output_dir="data"):
     # Cifrar con AES-GCM
     encryptor_tag, ciphertext = aes_encrypt_data(aes_key, nonce, plaintext)
 
-    
+    signature = sign_file(plaintext, private_key_pem, password)
 
     # Cifrar clave AES con RSA pública del usuario
     enc_key_user = rsa_encrypt_key(aes_key, public_key_pem)
@@ -102,7 +102,9 @@ def encrypt_file(filepath, public_key_pem, output_dir="data"):
         "filename": filename,
         "enc_key_user": base64.b64encode(enc_key_user).decode(),
         "enc_key_admin": base64.b64encode(enc_key_admin).decode(),
-        "algorithm": "AES-256-GCM"
+        "algorithm": "AES-256-GCM",
+        "signature": base64.b64encode(signature).decode()
+
     }
     write_json(os.path.join(output_dir, f"{filename}.json"), metadata)
     
@@ -119,7 +121,7 @@ def encrypt_file(filepath, public_key_pem, output_dir="data"):
     return filename
 
 
-def decrypt_file(filename, private_key_pem, password, input_dir="data", username=None):
+def decrypt_file(filename, private_key_pem, public_key_pem, password, username=None, input_dir="data"):
     """Descifra un archivo cifrado con AES-GCM, usando RSA para recuperar la clave"""
     #with open(os.path.join(input_dir, f"{filename}.json"), "r") as f:
      #   meta = json.load(f)
@@ -134,7 +136,7 @@ def decrypt_file(filename, private_key_pem, password, input_dir="data", username
         enc_key = base64.b64decode(meta["enc_key_admin"])
     else:
         enc_key = base64.b64decode(meta["enc_key_user"])
-
+    signature = base64.b64decode(meta["signature"])
     # Leer binario 
     with open(bin_path, "rb") as f:
         nonce = f.read(12)
@@ -146,6 +148,11 @@ def decrypt_file(filename, private_key_pem, password, input_dir="data", username
 
     # Descifrar con AES-GCM
     plaintext = aes_decrypt_data(aes_key, nonce, tag, ciphertext)
+    try:
+        verify_signature(signature, plaintext, public_key_pem)
+    except Exception as e:
+        print(f"Error: {e}", "Acceso al archivo denegado")
+        raise e
 
     # Recuperar nombre original y extensión
     original_name = meta.get("filename", filename)
@@ -157,9 +164,38 @@ def decrypt_file(filename, private_key_pem, password, input_dir="data", username
     
     print(f"Archivo '{filename}' descifrado correctamente")
     
-    return output_path
 
+def sign_file(plaintext, private_key_pem, password):
+    """Firma"""
 
+    private_key = serialization.load_pem_private_key(
+        private_key_pem.encode(),
+        password=password
+    )
+    
+    signature = private_key.sign(plaintext,
+    padding.PSS(
+        mgf=padding.MGF1(hashes.SHA256()),
+        salt_length=padding.PSS.MAX_LENGTH
+    ),
+    hashes.SHA256()
+    )
+
+    return signature
+
+def verify_signature(signature, plaintext, public_key_pem):
+    """Verificación"""
+    public_key = serialization.load_pem_public_key(public_key_pem)
+
+    public_key.verify(
+        signature,
+        plaintext,
+        padding.PSS(
+            mgf=padding.MGF1(hashes.SHA256()),
+            salt_length=padding.PSS.MAX_LENGTH
+        ),
+        hashes.SHA256()
+    )
 
         
 #__all__ = ["encrypt_file", "decrypt_file"]
