@@ -59,7 +59,7 @@ def rsa_decrypt_key(enc_key: str, private_key_pem: str, password: bytes):
 
 
 
-def encrypt_file(filepath, public_key_pem, private_key_pem, password, output_dir="data"):
+def encrypt_file(filepath, username, private_key_pem, password, output_dir="data"):
     """Cifra un archivo con AES-GCM y protege la clave AES con RSA"""
 
     # se crea el directorio 'data' en caso de que no exista
@@ -78,6 +78,8 @@ def encrypt_file(filepath, public_key_pem, private_key_pem, password, output_dir
 
     signature = sign_file(plaintext, private_key_pem, password)
 
+    #print(public_key_pem)
+    public_key_pem = get_public_key(username)
     # Cifrar clave AES con RSA pública del usuario
     enc_key_user = rsa_encrypt_key(aes_key, public_key_pem)
     
@@ -100,6 +102,7 @@ def encrypt_file(filepath, public_key_pem, private_key_pem, password, output_dir
     # Guardar metadatos (.json)
     metadata = {
         "filename": filename,
+        "signer": username,
         "enc_key_user": base64.b64encode(enc_key_user).decode(),
         "enc_key_admin": base64.b64encode(enc_key_admin).decode(),
         "algorithm": "AES-256-GCM",
@@ -121,7 +124,7 @@ def encrypt_file(filepath, public_key_pem, private_key_pem, password, output_dir
     return filename
 
 
-def decrypt_file(filename, private_key_pem, public_key_pem, password, username=None, input_dir="data"):
+def decrypt_file(filename, private_key_pem, password, username=None, input_dir="data"):
     """Descifra un archivo cifrado con AES-GCM, usando RSA para recuperar la clave"""
     #with open(os.path.join(input_dir, f"{filename}.json"), "r") as f:
      #   meta = json.load(f)
@@ -137,6 +140,8 @@ def decrypt_file(filename, private_key_pem, public_key_pem, password, username=N
     else:
         enc_key = base64.b64decode(meta["enc_key_user"])
     signature = base64.b64decode(meta["signature"])
+    signer = meta["signer"]
+    print(signer)
     # Leer binario 
     with open(bin_path, "rb") as f:
         nonce = f.read(12)
@@ -148,6 +153,8 @@ def decrypt_file(filename, private_key_pem, public_key_pem, password, username=N
 
     # Descifrar con AES-GCM
     plaintext = aes_decrypt_data(aes_key, nonce, tag, ciphertext)
+    # Extraer clave pública del signer
+    public_key_pem = get_public_key(signer)
     try:
         verify_signature(signature, plaintext, public_key_pem)
     except Exception as e:
@@ -185,6 +192,10 @@ def sign_file(plaintext, private_key_pem, password):
 
 def verify_signature(signature, plaintext, public_key_pem):
     """Verificación"""
+    # public_key_pem viene como str, hay que pasarlo a bytes
+    if isinstance(public_key_pem, str):
+        public_key_pem = public_key_pem.encode()
+        
     public_key = serialization.load_pem_public_key(public_key_pem)
 
     public_key.verify(
@@ -197,5 +208,21 @@ def verify_signature(signature, plaintext, public_key_pem):
         hashes.SHA256()
     )
 
-        
+def get_public_key(username: str):
+    """Devuelve la clave pública PEM de un usuario."""
+    users = read_json(USER_FILE)
+
+    # Verificar que el usuario existe
+    if username not in users:
+        raise ValueError(f"⚠️ El usuario '{username}' no existe en users.json.")
+
+    try:
+        # Recuperar public_key desde Base64 y convertirlo a string PEM
+        public_pem_b64 = users[username]["public_key"]
+        public_pem = base64.b64decode(public_pem_b64).decode()
+        return public_pem
+
+    except Exception as e:
+        raise ValueError(f"⚠️ Error al recuperar la clave pública de '{username}': {e}")
+   
 #__all__ = ["encrypt_file", "decrypt_file"]

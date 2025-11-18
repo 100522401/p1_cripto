@@ -200,7 +200,7 @@ def show_vault_screen(private_pem, public_pem, password, username):
         ruta = filedialog.askopenfilename(title="Selecciona un archivo para cifrar")
         if not ruta:
             return
-        encrypt_file(ruta, public_pem.decode() if isinstance(public_pem, bytes) else public_pem, private_pem, password=password.encode())
+        encrypt_file(ruta, username, private_pem, password=password.encode())
         messagebox.showinfo("Éxito", "Archivo cifrado correctamente.")
 
     def decrypt():
@@ -220,7 +220,7 @@ def show_vault_screen(private_pem, public_pem, password, username):
         nombre = os.path.splitext(os.path.basename(ruta))[0]
         
         try:
-            decrypt_file(nombre, private_pem, public_pem, password=password.encode(), username=username)
+            decrypt_file(nombre, private_pem, password=password.encode(), username=username)
             messagebox.showinfo("Éxito", "Archivo descifrado correctamente.")
         except Exception as e:
             messagebox.showerror("Error", f"Acceso al archivo denegado:\n{e}")
