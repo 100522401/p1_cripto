@@ -1,7 +1,11 @@
 import os
 import base64
 import re
+import subprocess
 from core.json_manager import read_json, write_json
+from cryptography import x509
+from cryptography.x509.oid import NameOID
+from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.kdf.scrypt import Scrypt
@@ -87,6 +91,120 @@ def get_admin_public_key():
     # Si no hay ninguno
     raise ValueError("⚠️ No se encontró ningún usuario con rol 'admin' en users.json.")
 
+def generate_csr(username, private_key_pem, password):
+    """Genera un CSR y lo guarda en AC1/solicitudes"""
+    private_key = serialization.load_pem_private_key(
+        private_key_pem.encode(),
+        password=password.encode()
+    )
+
+    path = f"AC1/solicitudes/{username}.csr.pem"
+    #Se crea la solicitud
+    csr = x509.CertificateSigningRequestBuilder().subject_name(x509.Name([
+        #   x509.NameAttribute(NameOID.COUNTRY_NAME, "ES"),
+        #   x509.NameAttribute(NameOID.STATE_OR_PROVINCE_NAME, "Madrid"),
+        #   x509.NameAttribute(NameOID.LOCALITY_NAME, "Getafe"),
+        #   x509.NameAttribute(NameOID.ORGANIZATION_NAME, "UC3M"),
+        #   x509.NameAttribute(NameOID.ORGANIZATIONAL_UNIT_NAME, "INF"),
+          x509.NameAttribute(NameOID.COMMON_NAME, username),
+    #Se firma la solicitud con la privada del usuario
+    ])).sign(private_key, hashes.SHA256())
+
+    with open(path, "wb") as f:
+        f.write(csr.public_bytes(serialization.Encoding.PEM))
+
+    return path
+
+# def sign_csr_AC1(username):
+
+#     csr_path = f"AC1/solicitudes/{username}.csr.pem"
+
+#     args = ["openssl", "ca", "-in",
+#              csr_path, "-notext", "-config",
+#             "AC1/openssl_AC1.cnf"]
+
+#     result = subprocess.run(args, capture_output=True, text=True)
+
+#     if result.returncode != 0:
+#         raise ValueError(f"Error al firmar el CSR: {result.stderr}")
+
+#     cert_path = rename_cert(username)
+
+#     return cert_path
+
+def get_serial_for_user(username):
+    """Le el ficheor index.txt y devulve el serial del usuario"""
+    index_file = "AC1/index.txt"
+
+    if not os.path.exists(index_file):
+        return None
+    
+    with open(index_file, "r") as f:
+        for line in f:
+            if f"/CN={username}" in line:
+                tokens = line.strip().split("\t")
+                serial = tokens[3].strip()
+                print(serial)
+                return serial
+        return None
+    
+
+def rename_cert(username):
+    """Renombra el certificado del usuario"""
+
+    #Ya fue renombrado
+    renamed = f"AC1/nuevoscerts/{username}.crt.pem"
+    if os.path.exists(renamed):
+        return renamed
+    
+    #busca el serial
+    #print("2")
+    serial = get_serial_for_user(username)  
+    #print(serial)
+    #print("3")
+    if not serial:
+        return False
+    
+    old_path = f"AC1/nuevoscerts/{serial}.pem"
+    new_path = f"AC1/nuevoscerts/{username}.crt.pem"
+
+    if not os.path.exists(old_path):
+        raise ValueError(f"El certificado {old_path} no existe")
+    
+    #Renombra
+    os.rename(old_path, new_path)
+
+    return new_path    
+    
+def check_cert(username):
+    """Comprueba si se ha emitido el certificado del usuario"""
+
+    users = read_json(USER_FILE)
+    user = users.get(username)
+    if not user:
+        return False
+    
+    # cert_path existe y guardado en el json
+    cert_path = user.get("cert_path")
+    if cert_path and os.path.exists(cert_path):
+        return True
+    
+    # cert_path existe con el nombre del usuario y no esta guardado en el json
+    expected_path = f"AC1/nuevoscerts/{username}.crt.pem"
+    if os.path.exists(expected_path):
+        users[username]["cert_path"] = expected_path
+        write_json(USER_FILE, users)
+        return True
+
+    # Caso en el que el certificado existe pero no ha sido renombrado
+    #print("1")
+    renamed_path = rename_cert(username)
+    if renamed_path and os.path.exists(renamed_path):
+        users[username]["cert_path"] = renamed_path
+        write_json(USER_FILE, users)
+        return True
+    
+    return False
 
 def sign_up(username: str, password: str): 
     """Registra un nuevo usuario"""
@@ -119,13 +237,22 @@ def sign_up(username: str, password: str):
         #Genero claves RSA (pública y privada)
         public_pem, private_pem = generate_rsa_keys(password)
 
+        #Creo CSR
+        csr_path = generate_csr(username, private_pem.decode(), password)
+
+        #Se firma la CSR y se obtiene el CA (TODO: No sé si se debiera hacer aqui)
+
+        #cert_path = sign_csr_AC1(username)
+
         # Convertir los bytes en texto base64 para que JSON pueda guardarlos
         users[username] = {
             "salt": base64.b64encode(salt).decode("utf-8"),
             "password_hash": base64.b64encode(password_hash).decode("utf-8"),
             "public_key": base64.b64encode(public_pem).decode(),
             "private_key_enc": base64.b64encode(private_pem).decode(),
-            "rol": "user"
+            "rol": "user",
+            "cert_path": None,
+            "csr_path": csr_path,
         }
 
         # Escribir en el fichero de datos los datos del usuario
@@ -175,6 +302,11 @@ def log_in(username: str, password: str) -> bool:
             )
         except Exception as e:
             print("Error al descifrar la clave privada.")
+            return False
+
+        
+        if not check_cert(username):
+            print("El certificado no ha sido emitido por la CA")
             return False
 
         print(f"Usuario '{username}' autenticado correctamente.")
