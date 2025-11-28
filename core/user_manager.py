@@ -197,7 +197,6 @@ def check_cert(username):
         return True
 
     # Caso en el que el certificado existe pero no ha sido renombrado
-    #print("1")
     renamed_path = rename_cert(username)
     if renamed_path and os.path.exists(renamed_path):
         users[username]["cert_path"] = renamed_path

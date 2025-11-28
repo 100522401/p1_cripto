@@ -5,12 +5,14 @@ La clase simétrica se protege cifrándola con la clave pública RSA del usuario
 import base64, json, os
 from core.json_manager import ensure_dir, write_json, delete_file, read_json
 from core.user_manager import get_admin_public_key, get_user_rol
+from cryptography import x509
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding
 
 USER_FILE = os.path.join("jsons", "users.json")
 
+    #TODO: hay que manejar correctamente los errores
 def aes_encrypt_data(aes_key, nonce, plaintext):
     cipher = Cipher(algorithms.AES(aes_key), modes.GCM(nonce))
     encryptor = cipher.encryptor()
@@ -57,7 +59,25 @@ def rsa_decrypt_key(enc_key: str, private_key_pem: str, password: bytes):
 
     return aes_key
 
+def load_user_certificate(username):
+    cert_path = f"AC1/nuevoscerts/{username}.crt.pem"
+    if not os.path.exists(cert_path):
+        raise ValueError(f"El certificado del usuario '{username}' no existe.")
+    
+    with open(cert_path, "rb") as f:
+        cert_pem = f.read()
+        cert = x509.load_pem_x509_certificate(cert_pem)
+    return cert
 
+def load_ca_certificate():
+    ac_cert_path = "AC1/ac1cert.pem"
+    if not os.path.exists(ac_cert_path):
+        raise ValueError("El certificado de la CA no existe.")
+    
+    with open(ac_cert_path, "rb") as f:
+        ac_cert_pem = f.read()
+        ac_cert = x509.load_pem_x509_certificate(ac_cert_pem)
+    return ac_cert
 
 def encrypt_file(filepath, username, private_key_pem, password, output_dir="data"):
     """Cifra un archivo con AES-GCM y protege la clave AES con RSA"""
@@ -126,8 +146,6 @@ def encrypt_file(filepath, username, private_key_pem, password, output_dir="data
 
 def decrypt_file(filename, private_key_pem, password, username=None, input_dir="data"):
     """Descifra un archivo cifrado con AES-GCM, usando RSA para recuperar la clave"""
-    #with open(os.path.join(input_dir, f"{filename}.json"), "r") as f:
-     #   meta = json.load(f)
     
     bin_path = os.path.join(input_dir, f"{filename}.bin")
     json_path = os.path.join(input_dir, f"{filename}.json")
@@ -141,7 +159,7 @@ def decrypt_file(filename, private_key_pem, password, username=None, input_dir="
         enc_key = base64.b64decode(meta["enc_key_user"])
     signature = base64.b64decode(meta["signature"])
     signer = meta["signer"]
-    print(signer)
+
     # Leer binario 
     with open(bin_path, "rb") as f:
         nonce = f.read(12)
@@ -153,15 +171,22 @@ def decrypt_file(filename, private_key_pem, password, username=None, input_dir="
 
     # Descifrar con AES-GCM
     plaintext = aes_decrypt_data(aes_key, nonce, tag, ciphertext)
-    # Extraer clave pública del signer
-    public_key_pem = get_public_key(signer)
-    try:
-        verify_signature(signature, plaintext, public_key_pem)
-    except Exception as e:
-        print(f"Error: {e}", "Acceso al archivo denegado")
-        raise e
 
-    # Recuperar nombre original y extensión
+    #Cargar certificado signer
+    cert_user = load_user_certificate(signer)
+
+    #Cargar certificado de la CA
+    cert_ca = load_ca_certificate()
+
+    #Verificar certificado signer firmado por la CA
+    if not verify_signature_signed_by_ca(cert_user, cert_ca):
+        raise ValueError("El certificado del usuario no ha sido firmado por la CA")
+
+    public_key = cert_user.public_key()
+
+    if not verify_signature(signature, plaintext, public_key):
+        raise ValueError("La firma no es válida. EL archivo fue manipulado o firmado por otro usuario")
+    
     original_name = meta.get("filename", filename)
     nombre_sin_ext, ext = os.path.splitext(original_name)
     output_path = os.path.join(input_dir, f"{nombre_sin_ext}_descifrado{ext}")
@@ -190,23 +215,29 @@ def sign_file(plaintext, private_key_pem, password):
 
     return signature
 
-def verify_signature(signature, plaintext, public_key_pem):
+def verify_signature(signature, plaintext, public_key):
     """Verificación"""
     # public_key_pem viene como str, hay que pasarlo a bytes
-    if isinstance(public_key_pem, str):
-        public_key_pem = public_key_pem.encode()
-        
-    public_key = serialization.load_pem_public_key(public_key_pem)
+    try:
+        public_key.verify(
+            signature,
+            plaintext,
+            padding.PSS(
+                mgf=padding.MGF1(hashes.SHA256()),
+                salt_length=padding.PSS.MAX_LENGTH
+            ),
+            hashes.SHA256()
+        )
+        return True
+    except Exception as e:
+        print(f"Firma digital inválida: {e}")
+        return False
 
-    public_key.verify(
-        signature,
-        plaintext,
-        padding.PSS(
-            mgf=padding.MGF1(hashes.SHA256()),
-            salt_length=padding.PSS.MAX_LENGTH
-        ),
-        hashes.SHA256()
-    )
+
+def verify_signature_signed_by_ca(cert_user, cert_ca):
+    #TODO
+    
+    return
 
 def get_public_key(username: str):
     """Devuelve la clave pública PEM de un usuario."""
