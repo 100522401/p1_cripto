@@ -158,10 +158,8 @@ def rename_cert(username):
         return renamed
     
     #busca el serial
-    #print("2")
+    
     serial = get_serial_for_user(username)  
-    #print(serial)
-    #print("3")
     if not serial:
         return False
     

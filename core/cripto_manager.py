@@ -5,6 +5,8 @@ La clase simétrica se protege cifrándola con la clave pública RSA del usuario
 import base64, json, os
 from core.json_manager import ensure_dir, write_json, delete_file, read_json
 from core.user_manager import get_admin_public_key, get_user_rol
+from cryptography.hazmat.primitives.serialization import load_pem_public_key
+from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography import x509
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives import hashes, serialization
@@ -236,8 +238,20 @@ def verify_signature(signature, plaintext, public_key):
 
 def verify_signature_signed_by_ca(cert_user, cert_ca):
     #TODO
+    ca_public_key = cert_ca.public_key()
+
+    try:
+        ca_public_key.verify(
+            cert_user.signature,
+            cert_user.tbs_certificate_bytes,
+            padding.PKCS1v15(),
+            cert_user.signature_hash_algorithm
+        )
+    except Exception as e:
+        print(f"Firma digital inválida: {e}")
+        return False
     
-    return
+    return True
 
 def get_public_key(username: str):
     """Devuelve la clave pública PEM de un usuario."""
