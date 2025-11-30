@@ -262,54 +262,38 @@ def sign_up(username: str, password: str):
         print(f"Error durante el registro: {e}")
         return False
 
-def log_in(username: str, password: str) -> bool:
+def log_in(username: str, password: str):
     """Comprueba si las credenciales del usuario son correctas."""
     try:
         users = read_json(USER_FILE)
-    except Exception as e:
-        print("Error al leer el archivo de usuarios: {e}")
-        return False
-    
-    if username not in users:
-        print("Usuario no encontrado.")
-        return False
-
-    try:
+        
+        if username not in users:
+            raise ValueError("Usuario no encontrado")
 
         salt = base64.b64decode(users[username]["salt"])
         stored_hash = base64.b64decode(users[username]["password_hash"])
 
-        # Verficiar Hash de la contraseña
+        # Verificar hash de contraseña
         kdf = derive_kdf(salt)
         if not verify_password(kdf, password, stored_hash):
-            print("Usuario o contraseña erróneos.")
-            return False
-        
+            raise ValueError("Usuario o contraseña incorrectos")
 
-        # Cargo claves desde JSON
+        # Cargar claves
         private_pem_enc = base64.b64decode(users[username]["private_key_enc"])
         public_pem = base64.b64decode(users[username]["public_key"])
 
         # Descifrar clave privada
-        try:
-                
-            private_key = serialization.load_pem_private_key(
-                private_pem_enc,
-                password=password.encode()
-            )
-        except Exception as e:
-            print("Error al descifrar la clave privada.")
-            return False
+        private_key = serialization.load_pem_private_key(
+            private_pem_enc,
+            password=password.encode()
+        )
 
-        
         if not check_cert(username):
-            print("El certificado no ha sido emitido por la CA")
-            return False
+            raise ValueError("El certificado no ha sido emitido por la CA")
 
-        print(f"Usuario '{username}' autenticado correctamente.")
-        #print(private_key)
-
+        print(f"Usuario '{username}' autenticado correctamente")
         return private_key, public_pem
+        
     except Exception as e:
-        print(f"Error durante el inicio de sesión: {e}")
-        return False
+        print(f"Error durante inicio de sesión: {e}")
+        raise ValueError(f"Error en inicio de sesión: {str(e)}")

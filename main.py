@@ -31,7 +31,6 @@ fuente_boton = ("Helvetica", 10, "bold")
 
 
 def user_sign_up():
-    # strip elimina los huecos en blanco
     username = entry_username_reg.get().strip()
     password = entry_password_reg.get()
 
@@ -42,14 +41,17 @@ def user_sign_up():
     try:
         registrado = sign_up(username, password)
         if registrado:
-            messagebox.showinfo("Registro exitoso", f"Usuario '{username}' registrado correctamente.")
+            messagebox.showinfo("Registro exitoso", 
+                              f"✅ Usuario '{username}' registrado correctamente.\n\n"
+                              f"• Se generaron claves RSA-2048\n"
+                              f"• Se creó solicitud de certificado (CSR)\n"
+                              f"• Se aplicó política de contraseñas seguras")
             clean_form_signup()
             show_log_in()
-        else:
-            messagebox.showerror("Error", "El usuario ya existe.")
     except ValueError as e:
-        messagebox.showerror("Error", str(e))
-
+        messagebox.showerror("❌ Error en registro", str(e))
+    except Exception as e:
+        messagebox.showerror("❌ Error inesperado", f"Error durante el registro:\n{str(e)}")
 
 def user_log_in():
     username = entry_username_login.get().strip()
@@ -59,25 +61,32 @@ def user_log_in():
         messagebox.showwarning("Campos vacíos", "Por favor, rellene todos los campos.")
         return
 
-    resultado = log_in(username, password)
-    clean_form_login()
+    try:
+        resultado = log_in(username, password)
+        clean_form_login()
 
-    if resultado:
-        private_key, public_key = resultado
-        messagebox.showinfo("Inicio de sesión", f"Bienvenido, {username}!")
-        # Serializamos la clave privada cifrada con la contraseña
-        show_vault_screen(
-            private_key.private_bytes(
-                encoding=serialization.Encoding.PEM,
-                format=serialization.PrivateFormat.PKCS8,
-                encryption_algorithm=serialization.BestAvailableEncryption(password.encode())
-            ).decode(),
-            public_key,
-            password,
-            username
-        )
-    else:
-        messagebox.showerror("Error", "Usuario o contraseña incorrectos.")
+        if resultado:
+            private_key, public_key = resultado
+            messagebox.showinfo("✅ Inicio de sesión exitoso", 
+                              f"Bienvenido, {username}!\n\n"
+                              f"• Credenciales verificadas ✓\n"
+                              f"• Certificado validado ✓\n"
+                              f"• Claves cargadas correctamente ✓")
+            
+            show_vault_screen(
+                private_key.private_bytes(
+                    encoding=serialization.Encoding.PEM,
+                    format=serialization.PrivateFormat.PKCS8,
+                    encryption_algorithm=serialization.BestAvailableEncryption(password.encode())
+                ).decode(),
+                public_key,
+                password,
+                username
+            )
+    except ValueError as e:
+        messagebox.showerror("❌ Error en inicio de sesión", str(e))
+    except Exception as e:
+        messagebox.showerror("❌ Error inesperado", f"Error durante el inicio de sesión:\n{str(e)}")
 
 def clean_form_login():
     """Vacía los campos del formulario de inicio de sesión."""
@@ -149,9 +158,9 @@ tk.Button(
 
 frame_registro = tk.Frame(root, bg="#E8EEF1")
 
-tk.Label(frame_registro, text="REGISTRO DE username", font=fuente_titulo, fg=COLOR_TEXTO, bg="#E8EEF1").pack(pady=15)
+tk.Label(frame_registro, text="REGISTRO DE USUARIO", font=fuente_titulo, fg=COLOR_TEXTO, bg="#E8EEF1").pack(pady=15)
 
-tk.Label(frame_registro, text="Nuevo username:", font=fuente_label, bg="#E8EEF1").pack()
+tk.Label(frame_registro, text="Nuevo usuario:", font=fuente_label, bg="#E8EEF1").pack()
 entry_username_reg = tk.Entry(frame_registro, width=30, bd=2, relief="groove", justify="center")
 entry_username_reg.pack(pady=8)
 
@@ -187,57 +196,69 @@ tk.Button(
 # ====================================================
 
 def show_vault_screen(private_pem, public_pem, password, username):
-    # Oculta las otras pantallas
     frame_login.pack_forget()
     frame_registro.pack_forget()
 
     frame_vault = tk.Frame(root, bg="#E8EEF1")
     frame_vault.pack(expand=True)
 
-    tk.Label(frame_vault, text="Almacén seguro", font=fuente_titulo, bg="#E8EEF1").pack(pady=15)
+    tk.Label(frame_vault, text=f"🔐 Almacén seguro - {username}", font=fuente_titulo, bg="#E8EEF1").pack(pady=15)
 
     def encrypt():
         ruta = filedialog.askopenfilename(title="Selecciona un archivo para cifrar")
         if not ruta:
             return
-        encrypt_file(ruta, username, private_pem, password=password.encode())
-        messagebox.showinfo("Éxito", "Archivo cifrado correctamente.")
+        try:
+            filename = encrypt_file(ruta, username, private_pem, password=password.encode())
+            messagebox.showinfo("✅ Cifrado exitoso", 
+                              f"Archivo cifrado correctamente.\n\n"
+                              f"📁 Nombre: {filename}")
+        except Exception as e:
+            messagebox.showerror("❌ Error al cifrar", f"No se pudo cifrar el archivo:\n\n{str(e)}")
 
     def decrypt():
-        """Permite seleccionar y descifrar un archivo .bin con la clave privada del usuario."""
-
-        # Seleccionar un .bin
-        ruta = filedialog.askopenfilename(title="Selecciona un archivo .bin para descifrar")
-        if not ruta.endswith(".bin"):
-            messagebox.showerror("Error", "Selecciona un archivo con extensión .bin.")
-            return
-
-        # Usuario cancela
+        ruta = filedialog.askopenfilename(
+            title="Selecciona un archivo .bin para descifrar",
+            filetypes=[("Archivos cifrados", "*.bin")]
+        )
+        
         if not ruta:
             return
+            
+        if not ruta.endswith(".bin"):
+            messagebox.showerror("❌ Error", "Selecciona un archivo con extensión .bin.")
+            return
         
-        # Nombre del archivo sin extensión
         nombre = os.path.splitext(os.path.basename(ruta))[0]
         
         try:
-            decrypt_file(nombre, private_pem, password=password.encode(), username=username)
-            messagebox.showinfo("Éxito", "Archivo descifrado correctamente.")
+            output_path = decrypt_file(nombre, private_pem, password=password.encode(), username=username)
+            messagebox.showinfo("✅ Descifrado exitoso", 
+                              f"Archivo descifrado correctamente.\n\n"
+                              f"📁 Ubicación: {output_path}\n"
+                              f"✅ Firma digital verificada ✓\n"
+                              f"✅ Certificado validado ✓")
         except Exception as e:
-            messagebox.showerror("Error", f"Acceso al archivo denegado:\n{e}")
+            messagebox.showerror("❌ Error al descifrar", f"No se pudo descifrar el archivo:\n\n{str(e)}")
 
-
-
-    tk.Button(frame_vault, text="Cifrar archivo", command=encrypt,
+    # Botones
+    tk.Button(frame_vault, text="🔒 Cifrar archivo", command=encrypt,
               bg=COLOR_PRINCIPAL, fg="white", font=fuente_boton, width=20).pack(pady=10)
-    tk.Button(frame_vault, text="Descifrar archivo", command=decrypt,
+    
+    tk.Button(frame_vault, text="🔓 Descifrar archivo", command=decrypt,
               bg=COLOR_PRINCIPAL, fg="white", font=fuente_boton, width=20).pack(pady=10)
+    
+    # Información texto
+    info_text = ("• Use los botones para cifrar o descifrar archivos.\n")
+    
+    tk.Label(frame_vault, text=info_text, font=("Helvetica", 9), 
+             bg="#E8EEF1", justify="left").pack(pady=10)
     
     def log_out():
         frame_vault.pack_forget()
         frame_vault.destroy()
         show_log_in()
         
-    
     tk.Button(frame_vault, text="Cerrar sesión", command=log_out,
               bg="#CAD2C5", fg=COLOR_TEXTO, font=fuente_boton, width=20).pack(pady=20)
 

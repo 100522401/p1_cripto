@@ -83,142 +83,162 @@ def load_ca_certificate():
 
 def encrypt_file(filepath, username, private_key_pem, password, output_dir="data"):
     """Cifra un archivo con AES-GCM y protege la clave AES con RSA"""
-
-    # se crea el directorio 'data' en caso de que no exista
-    ensure_dir(output_dir)
-
-    # Leer archivo
-    with open(filepath, "rb") as f:
-        plaintext = f.read()
-    
-    # Generar clave AES y nonce
-    aes_key = os.urandom(32)
-    nonce = os.urandom(12)
-
-    # Cifrar con AES-GCM
-    encryptor_tag, ciphertext = aes_encrypt_data(aes_key, nonce, plaintext)
-
-    signature = sign_file(plaintext, private_key_pem, password)
-
-    #print(public_key_pem)
-    public_key_pem = get_public_key(username)
-    # Cifrar clave AES con RSA pública del usuario
-    enc_key_user = rsa_encrypt_key(aes_key, public_key_pem)
-    
-    # Clave cifrada con pública del admin
     try:
-        admin_pub = get_admin_public_key()
-        enc_key_admin = rsa_encrypt_key(aes_key, admin_pub)
+        ensure_dir(output_dir)
+
+        # Leer archivo
+        with open(filepath, "rb") as f:
+            plaintext = f.read()
+        
+        # Generar clave AES y nonce
+        aes_key = os.urandom(32)
+        nonce = os.urandom(12)
+
+        # Cifrar con AES-GCM
+        encryptor_tag, ciphertext = aes_encrypt_data(aes_key, nonce, plaintext)
+
+        # Firmar el archivo
+        signature = sign_file(plaintext, private_key_pem, password)
+        
+        # Obtener y cifrar claves
+        public_key_pem = get_public_key(username)
+        enc_key_user = rsa_encrypt_key(aes_key, public_key_pem)
+        
+        # Cifrar también con clave del admin
+        try:
+            admin_pub = get_admin_public_key()
+            enc_key_admin = rsa_encrypt_key(aes_key, admin_pub)
+        except Exception as e:
+            print(f"Advertencia: No se pudo cifrar con clave admin: {e}")
+            enc_key_admin = b""
+
+        # Guardar archivo cifrado
+        filename = os.path.basename(filepath)
+        bin_path = os.path.join(output_dir, f"{filename}.bin")
+        
+        with open(bin_path, "wb") as f:
+            f.write(nonce + encryptor_tag + ciphertext)
+        
+        # Guardar metadatos
+        metadata = {
+            "filename": filename,
+            "signer": username,
+            "enc_key_user": base64.b64encode(enc_key_user).decode(),
+            "enc_key_admin": base64.b64encode(enc_key_admin).decode() if enc_key_admin else "",
+            "algorithm": "AES-256-GCM",
+            "signature": base64.b64encode(signature).decode(),
+            "signature_algorithm": get_signature_algorithm_info()
+        }
+        
+        write_json(os.path.join(output_dir, f"{filename}.json"), metadata)
+        delete_file(filepath)
+        
+        print(f"Archivo '{filename}' cifrado y firmado correctamente")
+        return filename
+        
     except Exception as e:
-        raise ValueError(f"No se pudo obtener la clave pública del admin: {e}")
-    
-    # Se crea el directorio 'data' en caso de que no exista (destino de archivos cifrados/descifrados por defecto)
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
-    
-    # Guardar archivo cifrado binario (.bin)
-    filename = os.path.basename(filepath)
-    with open(os.path.join(output_dir, f"{filename}.bin"), "wb") as f:
-        f.write(nonce + encryptor_tag + ciphertext)
-    
-    # Guardar metadatos (.json)
-    metadata = {
-        "filename": filename,
-        "signer": username,
-        "enc_key_user": base64.b64encode(enc_key_user).decode(),
-        "enc_key_admin": base64.b64encode(enc_key_admin).decode(),
-        "algorithm": "AES-256-GCM",
-        "signature": base64.b64encode(signature).decode()
-
-    }
-    write_json(os.path.join(output_dir, f"{filename}.json"), metadata)
-    
-    #with open(os.path.join(output_dir, f"{filename}.json"), "w") as f:
-     #  json.dump(metadata, f, indent=4)
-
-
-    #os.remove(filepath)
-    
-    # Borrar archivo original
-    delete_file(filepath)
-    print(f"Archivo '{filename}' cifrado correctamente")
-
-    return filename
+        print(f"Error al cifrar archivo: {e}")
+        raise ValueError(f"Error en cifrado: {str(e)}")
 
 
 def decrypt_file(filename, private_key_pem, password, username=None, input_dir="data"):
-    """Descifra un archivo cifrado con AES-GCM, usando RSA para recuperar la clave"""
+    """Descifra un archivo cifrado con AES-GCM"""
+    try:
+        bin_path = os.path.join(input_dir, f"{filename}.bin")
+        json_path = os.path.join(input_dir, f"{filename}.json")
+
+        if not os.path.exists(bin_path) or not os.path.exists(json_path):
+            raise ValueError("Archivos cifrados no encontrados")
+
+        # Leer metadatos
+        meta = read_json(json_path)
+        role = get_user_rol(username) if username else "user"
+        
+        # Seleccionar clave según rol
+        if role == "admin" and meta.get("enc_key_admin"):
+            enc_key = base64.b64decode(meta["enc_key_admin"])
+        else:
+            enc_key = base64.b64decode(meta["enc_key_user"])
+            
+        signature = base64.b64decode(meta["signature"])
+        signer = meta["signer"]
+
+        # Leer datos cifrados
+        with open(bin_path, "rb") as f:
+            nonce = f.read(12)
+            tag = f.read(16)
+            ciphertext = f.read()
+
+        # Descifrar clave AES
+        aes_key = rsa_decrypt_key(enc_key, private_key_pem, password)
+
+        # Descifrar con AES-GCM
+        plaintext = aes_decrypt_data(aes_key, nonce, tag, ciphertext)
+
+        # Verificar certificado y firma
+        cert_user = load_user_certificate(signer)
+        cert_ca = load_ca_certificate()
+
+        if not verify_signature_signed_by_ca(cert_user, cert_ca):
+            raise ValueError("Certificado del usuario no verificado por la CA")
+
+        public_key = cert_user.public_key()
+
+        if not verify_signature(signature, plaintext, public_key):
+            raise ValueError("Firma digital inválida - archivo posiblemente manipulado")
+
+        # Guardar archivo descifrado
+        original_name = meta.get("filename", filename)
+        nombre_sin_ext, ext = os.path.splitext(original_name)
+        output_path = os.path.join(input_dir, f"{nombre_sin_ext}_descifrado{ext}")
+        
+        with open(output_path, "wb") as f:
+            f.write(plaintext)
+        
+        print(f"Archivo '{filename}' descifrado y verificado correctamente")
+        return output_path
+        
+    except Exception as e:
+        print(f"Error al descifrar archivo: {e}")
+        raise ValueError(f"Error en descifrado: {str(e)}")
     
-    bin_path = os.path.join(input_dir, f"{filename}.bin")
-    json_path = os.path.join(input_dir, f"{filename}.json")
-
-    # Leer metadatos
-    meta = read_json(json_path)
-    role = get_user_rol(username)
-    if role == "admin":
-        enc_key = base64.b64decode(meta["enc_key_admin"])
-    else:
-        enc_key = base64.b64decode(meta["enc_key_user"])
-    signature = base64.b64decode(meta["signature"])
-    signer = meta["signer"]
-
-    # Leer binario 
-    with open(bin_path, "rb") as f:
-        nonce = f.read(12)
-        tag = f.read(16)
-        ciphertext = f.read()
-
-    # Descifrar clave AES
-    aes_key = rsa_decrypt_key(enc_key, private_key_pem, password)
-
-    # Descifrar con AES-GCM
-    plaintext = aes_decrypt_data(aes_key, nonce, tag, ciphertext)
-
-    #Cargar certificado signer
-    cert_user = load_user_certificate(signer)
-
-    #Cargar certificado de la CA
-    cert_ca = load_ca_certificate()
-
-    #Verificar certificado signer firmado por la CA
-    if not verify_signature_signed_by_ca(cert_user, cert_ca):
-        raise ValueError("El certificado del usuario no ha sido firmado por la CA")
-
-    public_key = cert_user.public_key()
-
-    if not verify_signature(signature, plaintext, public_key):
-        raise ValueError("La firma no es válida. EL archivo fue manipulado o firmado por otro usuario")
-    
-    original_name = meta.get("filename", filename)
-    nombre_sin_ext, ext = os.path.splitext(original_name)
-    output_path = os.path.join(input_dir, f"{nombre_sin_ext}_descifrado{ext}")
-    
-    with open(output_path, "wb") as f:
-        f.write(plaintext)
-    
-    print(f"Archivo '{filename}' descifrado correctamente")
-    
+def get_signature_algorithm_info():
+    """Devuelve información sobre el algoritmo de firma utilizado"""
+    return {
+        "algorithm": "RSA-PSS",
+        "hash": "SHA256",
+        "padding": "PSS with MGF1",
+        "key_size": 2048
+    }
 
 def sign_file(plaintext, private_key_pem, password):
-    """Firma"""
-
-    private_key = serialization.load_pem_private_key(
-        private_key_pem.encode(),
-        password=password
-    )
-    
-    signature = private_key.sign(plaintext,
-    padding.PSS(
-        mgf=padding.MGF1(hashes.SHA256()),
-        salt_length=padding.PSS.MAX_LENGTH
-    ),
-    hashes.SHA256()
-    )
-
-    return signature
+    """Firma un archivo usando RSA-PSS con SHA256"""
+    try:
+        private_key = serialization.load_pem_private_key(
+            private_key_pem.encode(),
+            password=password
+        )
+        
+        signature = private_key.sign(
+            plaintext,
+            padding.PSS(
+                mgf=padding.MGF1(hashes.SHA256()),
+                salt_length=padding.PSS.MAX_LENGTH
+            ),
+            hashes.SHA256()
+        )
+        
+        algo_info = get_signature_algorithm_info()
+        print(f"Archivo firmado correctamente - Algoritmo: {algo_info['algorithm']}, Hash: {algo_info['hash']}")
+        
+        return signature
+        
+    except Exception as e:
+        print(f"Error al firmar archivo: {e}")
+        raise ValueError(f"Error en firma digital: {str(e)}")
 
 def verify_signature(signature, plaintext, public_key):
-    """Verificación"""
+    """Verifica una firma digital usando RSA-PSS con SHA256"""
     # public_key_pem viene como str, hay que pasarlo a bytes
     try:
         public_key.verify(
@@ -237,7 +257,7 @@ def verify_signature(signature, plaintext, public_key):
 
 
 def verify_signature_signed_by_ca(cert_user, cert_ca):
-    #TODO
+    """Verifica que el certificado del usuario esté firmado por la CA"""
     ca_public_key = cert_ca.public_key()
 
     try:

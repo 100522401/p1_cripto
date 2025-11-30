@@ -43,13 +43,13 @@ venv/
 # AC1/crls/
 
 # No subir los ficheros dinámicos de la CA
-# AC1/ac1cert.pem
-# AC1/index.txt
-# AC1/index.txt.attr
-# AC1/index.txt.old
-# AC1/index.txt.attr.old
-# AC1/serial
-# AC1/serial.old
+AC1/ac1cert.pem
+AC1/index.txt
+AC1/index.txt.attr
+AC1/index.txt.old
+AC1/index.txt.attr.old
+AC1/serial
+AC1/serial.old
 
 # PERMITIR subir SOLO la configuración de OpenSSL
 
