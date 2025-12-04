@@ -9,10 +9,10 @@ En este caso ya se da una AC1 creada de prueba:
 
 Sin embargo, si se desea crear una nueva, debe:
     - Borrar el contenido de, privado/, nuevoscerts/, solicitudes/.
-    - Debe borrar el contenido de index.txt y reemplazar el conetido de serial por "01"
+    - Debe borrar el contenido de index.txt y reemplazar el contenido de serial por "01"
     - Debe borrar ac1cert.pem
 
-    - Entonces deberá ejecutar el siguiente comando desde una terminal en AC1/
+    - Una vez ejecutados los pasos anteriores, entonces deberá ejecutar el siguiente comando desde una terminal en AC1/
 openssl req -x509 -newkey rsa:2048 -days 360 -out ac1cert.pem -outform PEM -config openssl_AC1.cnf
 
 Esto crea:
