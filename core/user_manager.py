@@ -89,7 +89,7 @@ def get_admin_public_key():
             return base64.b64decode(data["public_key"]).decode()
 
     # Si no hay ninguno
-    raise ValueError("⚠️ No se encontró ningún usuario con rol 'admin' en users.json.")
+    raise ValueError("No se encontró ningún usuario con rol 'admin' en users.json.")
 
 def generate_csr(username, private_key_pem, password):
     """Genera un CSR y lo guarda en AC1/solicitudes"""
@@ -116,24 +116,18 @@ def generate_csr(username, private_key_pem, password):
     return path
 
 # def sign_csr_AC1(username):
-
 #     csr_path = f"AC1/solicitudes/{username}.csr.pem"
-
 #     args = ["openssl", "ca", "-in",
 #              csr_path, "-notext", "-config",
 #             "AC1/openssl_AC1.cnf"]
-
 #     result = subprocess.run(args, capture_output=True, text=True)
-
 #     if result.returncode != 0:
 #         raise ValueError(f"Error al firmar el CSR: {result.stderr}")
-
 #     cert_path = rename_cert(username)
-
 #     return cert_path
 
 def get_serial_for_user(username):
-    """Le el ficheor index.txt y devulve el serial del usuario"""
+    """Lee el fichero index.txt y devuelve el serial del usuario"""
     index_file = "AC1/index.txt"
 
     if not os.path.exists(index_file):
@@ -151,14 +145,12 @@ def get_serial_for_user(username):
 
 def rename_cert(username):
     """Renombra el certificado del usuario"""
-
-    #Ya fue renombrado
+    # Ya fue renombrado
     renamed = f"AC1/nuevoscerts/{username}.crt.pem"
     if os.path.exists(renamed):
         return renamed
     
-    #busca el serial
-    
+    # busca el serial
     serial = get_serial_for_user(username)  
     if not serial:
         return False
@@ -168,8 +160,8 @@ def rename_cert(username):
 
     if not os.path.exists(old_path):
         raise ValueError(f"El certificado {old_path} no existe")
-    
-    #Renombra
+
+    # Renombra
     os.rename(old_path, new_path)
 
     return new_path    
@@ -236,10 +228,6 @@ def sign_up(username: str, password: str):
 
         #Creo CSR
         csr_path = generate_csr(username, private_pem.decode(), password)
-
-        #Se firma la CSR y se obtiene el CA (TODO: No sé si se debiera hacer aqui)
-
-        #cert_path = sign_csr_AC1(username)
 
         # Convertir los bytes en texto base64 para que JSON pueda guardarlos
         users[username] = {

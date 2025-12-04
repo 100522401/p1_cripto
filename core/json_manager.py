@@ -2,7 +2,7 @@ import os
 import json
 
 
-"""     JSON MANAGER    """
+"""JSON MANAGER"""
 def ensure_dir(path: str):
     """Crea el directorio del archivo si no existe."""
     directory = os.path.dirname(path)

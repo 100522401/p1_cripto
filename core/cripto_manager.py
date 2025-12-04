@@ -14,8 +14,8 @@ from cryptography.hazmat.primitives.asymmetric import padding
 
 USER_FILE = os.path.join("jsons", "users.json")
 
-    #TODO: hay que manejar correctamente los errores
 def aes_encrypt_data(aes_key, nonce, plaintext):
+    """Cifra datos con AES-256-GCM"""
     cipher = Cipher(algorithms.AES(aes_key), modes.GCM(nonce))
     encryptor = cipher.encryptor()
     ciphertext = encryptor.update(plaintext) + encryptor.finalize()
@@ -23,6 +23,7 @@ def aes_encrypt_data(aes_key, nonce, plaintext):
     return  encryptor.tag, ciphertext
 
 def aes_decrypt_data(aes_key, nonce, tag, ciphertext):
+    """Descifra datos con AES-256-GCM"""
     cipher = Cipher(algorithms.AES(aes_key), modes.GCM(nonce, tag))
     decryptor = cipher.decryptor()
     plaintext = decryptor.update(ciphertext) + decryptor.finalize()
@@ -30,6 +31,7 @@ def aes_decrypt_data(aes_key, nonce, tag, ciphertext):
     return plaintext
 
 def rsa_encrypt_key(aes_key: bytes, public_key_pem: str):
+    """Cifra la clave AES con la clave pública RSA del usuario"""
     public_key = serialization.load_pem_public_key(public_key_pem.encode())
 
     enc_key = public_key.encrypt(
@@ -44,12 +46,11 @@ def rsa_encrypt_key(aes_key: bytes, public_key_pem: str):
     return enc_key
 
 def rsa_decrypt_key(enc_key: str, private_key_pem: str, password: bytes):
-
+    """Descifra la clave AES con la clave privada RSA del usuario"""
     private_key = serialization.load_pem_private_key(
         private_key_pem.encode(),
         password=password
     )
-
     aes_key = private_key.decrypt(
         enc_key,
         padding.OAEP(
@@ -62,16 +63,18 @@ def rsa_decrypt_key(enc_key: str, private_key_pem: str, password: bytes):
     return aes_key
 
 def load_user_certificate(username):
+    """Carga el certificado PEM de un usuario desde el sistema de archivos"""
     cert_path = f"AC1/nuevoscerts/{username}.crt.pem"
     if not os.path.exists(cert_path):
         raise ValueError(f"El certificado del usuario '{username}' no existe.")
-    
+    # Leer certificado
     with open(cert_path, "rb") as f:
         cert_pem = f.read()
         cert = x509.load_pem_x509_certificate(cert_pem)
     return cert
 
 def load_ca_certificate():
+    """Carga el certificado PEM de la Autoridad Certificadora (CA)"""
     ac_cert_path = "AC1/ac1cert.pem"
     if not os.path.exists(ac_cert_path):
         raise ValueError("El certificado de la CA no existe.")
@@ -130,6 +133,7 @@ def encrypt_file(filepath, username, private_key_pem, password, output_dir="data
             "signature_algorithm": get_signature_algorithm_info()
         }
         
+        # Guardar metadatos en JSON
         write_json(os.path.join(output_dir, f"{filename}.json"), metadata)
         delete_file(filepath)
         
@@ -218,7 +222,7 @@ def sign_file(plaintext, private_key_pem, password):
             private_key_pem.encode(),
             password=password
         )
-        
+        # Firmar datos
         signature = private_key.sign(
             plaintext,
             padding.PSS(
@@ -227,7 +231,7 @@ def sign_file(plaintext, private_key_pem, password):
             ),
             hashes.SHA256()
         )
-        
+        # Obtener info del algoritmo de firma
         algo_info = get_signature_algorithm_info()
         print(f"Archivo firmado correctamente - Algoritmo: {algo_info['algorithm']}, Hash: {algo_info['hash']}")
         
@@ -279,7 +283,7 @@ def get_public_key(username: str):
 
     # Verificar que el usuario existe
     if username not in users:
-        raise ValueError(f"⚠️ El usuario '{username}' no existe en users.json.")
+        raise ValueError(f"El usuario '{username}' no existe en users.json.")
 
     try:
         # Recuperar public_key desde Base64 y convertirlo a string PEM
@@ -288,6 +292,6 @@ def get_public_key(username: str):
         return public_pem
 
     except Exception as e:
-        raise ValueError(f"⚠️ Error al recuperar la clave pública de '{username}': {e}")
+        raise ValueError(f"Error al recuperar la clave pública de '{username}': {e}")
    
 #__all__ = ["encrypt_file", "decrypt_file"]
