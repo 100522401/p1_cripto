@@ -115,17 +115,6 @@ def generate_csr(username, private_key_pem, password):
 
     return path
 
-# def sign_csr_AC1(username):
-#     csr_path = f"AC1/solicitudes/{username}.csr.pem"
-#     args = ["openssl", "ca", "-in",
-#              csr_path, "-notext", "-config",
-#             "AC1/openssl_AC1.cnf"]
-#     result = subprocess.run(args, capture_output=True, text=True)
-#     if result.returncode != 0:
-#         raise ValueError(f"Error al firmar el CSR: {result.stderr}")
-#     cert_path = rename_cert(username)
-#     return cert_path
-
 def get_serial_for_user(username):
     """Lee el fichero index.txt y devuelve el serial del usuario"""
     index_file = "AC1/index.txt"
