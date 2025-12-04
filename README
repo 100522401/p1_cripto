@@ -1,0 +1,34 @@
+La carpeta AC1/ contiene la Autoridad de Certificación utilizada
+para emitir los certificados X.509 de los usuarios.
+La aplicación genera las CSR automáticamente,
+pero la firma del certificado debe hacerse manualmente en la terminal usando OpenSSL.
+
+1. Crear la CA (solo una vez)
+En este caso ya se da una AC1 creada de prueba: 
+    - password: "cripto"
+
+Sin embargo, si se desea crear una nueva, debe:
+    - Borrar el contenido de, privado/, nuevoscerts/, solicitudes/.
+    - Debe borrar el contenido de index.txt y reemplazar el conetido de serial por "01"
+    - Debe borrar ac1cert.pem
+
+    - Entonces deberá ejecutar el siguiente comando desde una terminal en AC1/
+openssl req -x509 -newkey rsa:2048 -days 360 -out ac1cert.pem -outform PEM -config openssl_AC1.cnf
+
+Esto crea:
+- la clave privada de la CA (en privado/),
+- el certificado autofirmado ac1cert.pem.
+
+
+2. Firmar un certificado de usuario
+
+Cuando un usuario se registra, la aplicación genera automáticamente su CSR en:
+AC1/solicitudes/<usuario>.csr.pem
+
+Para firmar la solicitud y emitir su certificado X.509, usar:
+openssl ca -in ./solicitudes/<usuario>.csr.pem -notext -config ./openssl_AC1.cnf
+
+El certificado emitido se guarda en:
+AC1/nuevoscerts/<serial>.pem
+La aplicación renombrará este fichero en el siguiente inicio de sesión del usuario.
+AC1/nuevoscerts/<usuario>.crt.pem

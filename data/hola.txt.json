@@ -1,8 +1,0 @@
-{
-    "filename": "hola.txt",
-    "signer": "usuario3",
-    "enc_key_user": "AHrGpXkS2+opL/JIF5nUMi5vThbuRw51m5peTRXVVhvbcnBj0TqsJSmPokxupua8jMCCAS/Mvt6Wh1/FDFdXRzPazq/qHCtFAHe0qn5KBJKs6JW0NwCApAP4+YEkK614Aukno4wlA9b73DxYix+Wf/lffubvy+VY5pZyMqKAWthJ9CS4EGMxHOv9n773Bu9OnHrEy7b0iWT1Y7rgubZMK36C+pk25EhrJ0LOmEua0nukYSvSdyE+uhsiFS0edj9P6ZaRcTHQsoot2QvnNYEgcrogoqTUe9UE9+feR9jknYagarnUX2rymAy5znzilvnXdXhbtCY8XIdhtVIsnG24/w==",
-    "enc_key_admin": "XxIJCakGl5cWj/mz+zx8PM2f3ka12O1xmxEEkX+tG3gSDURHl/bDDqOrXZ5ju3OvFisV616QQG4PuwM1P7vrRhW8FmiKP7IhJL9poKRfIQJHyEKd3Ws7emKly9YmwcRGuFywTzIEjc5P02NgEIXGTF076xQDYWWnwJ3IOZmgu25puD3RePKqKmksLIGOhsuDEYCnwQfvZPX8+7ECqmEDQrAKVKh9fQ4hcGDCnvRhY9nNFeb1yzz+JDo6cn8wVnaXsG19hE9ny8nMp4C2DlsndEHxyyJVlkf0Szjqn8uptR9W2ZQ82cDRy4Iol93GpWnWtn7BZ9H6xUlGqllnmAH75w==",
-    "algorithm": "AES-256-GCM",
-    "signature": "e4Cg1Uf2g2yBwbZq5vUW3ZQKZyMAK+lFhpMmTujBoyc0Lht2PlPotY/3GQiNYlamMsGwtpZOuTlNk19Xz5ipMYp6CBHAxeziaCjeKZ3befvnLNEXwNXzg8qTPfbsPNoFP04gk+0SLwUpxQFGoxywuT1lfx67qphO2af0nqFDqFkkNW/cm8G0ljXVkcTMG+dDsDQ6MlpL/bf3Lb9NApN+mqs/GdZlN4wPSsw1fLQ3Pqhp60iJqIgv4ZQw498Z8x7AY1uOVOu8FC1ZK4Pr6ZxFW120paSgi5Uopyb8cL/4cgQuxiMRtCtvHcqYOjXY4qPpuCemFXwL1dFAcjEkbOtlGQ=="
-}
